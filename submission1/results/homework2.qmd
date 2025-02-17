@@ -70,7 +70,7 @@ unique_hospital_ids
 
 # Ensure data is clean and has all required columns
 final.hcris <- final.hcris %>%
-  drop_na(tot_charges, year)
+  drop_na(tot_charges, fyear)
 
 # Remove extreme outliers using the 1st and 99th percentiles
 lower_limit <- quantile(final.hcris$tot_charges, 0.01, na.rm = TRUE)
@@ -80,7 +80,7 @@ final.hcris <- final.hcris %>%
   filter(tot_charges >= lower_limit & tot_charges <= upper_limit)
 
 # Create a violin plot for total charges by year
-violin_tot_charges_plot <- ggplot(final.hcris, aes(x = as.factor(year), y = tot_charges)) +
+violin_tot_charges_plot <- ggplot(final.hcris, aes(x = as.factor(fyear), y = tot_charges)) +
   geom_violin(fill = "steelblue", alpha = 0.5) +  # Violin plot with color
   geom_quasirandom(size = 0.5, alpha = 0.5) +     # Scatter points inside violins
   stat_summary(fun = median, geom = "point", size = 3, color = "red") + # Median point
@@ -157,6 +157,9 @@ violin_price_plot <- ggplot(final.hcris.data, aes(x = as.factor(year), y = price
 
 # Print the plot
 print(violin_price_plot)
+
+# Save the plot
+ggsave('submission1/results/violin_price_plot.png', plot = violin_price_plot, width = 10, height = 6)
 ```
 
 
