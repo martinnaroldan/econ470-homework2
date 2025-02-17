@@ -170,6 +170,7 @@ For the rest of the assignment, you should include only observations in 2012. So
 ```{r}
 #| echo: false
 # Define penalty
+
 final.hcris.data <- final.hcris.data %>%
   mutate(penalty = if_else(hrrp_payment + hvbp_payment < 0, 1, 0))
 
@@ -186,6 +187,10 @@ average_price
 ```
 
 6. Split hospitals into quartiles based on bed size. To do this, create 4 new indicator variables, where each variable is set to 1 if the hospital's bed size falls into the relevant quartile. Provide a table of the average price among treated/control groups for each quartile.
+```{r}
+final.hcris.data <- final.hcris.data %>%
+
+```
 
 7. Find the average treatment effect using each of the following estimators, and present your results in a single table: 
     - Nearest neighbor matching (1-to-1) with inverse variance distance based on quartiles of bed size
