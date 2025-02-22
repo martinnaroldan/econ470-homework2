@@ -13,7 +13,10 @@ format:
 ```{r}
 #| include: false
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, readr, readxl, hrbrthemes, scales, ggrepel, kableExtra)
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, readr, readxl, hrbrthemes, scales, ggrepel, kableExtra, modelsummary) 
+
+# Load previously saved workspace
+load("results/hwk2_regression.Rdata")
 ```
 
 
@@ -25,141 +28,31 @@ The due date for initial submission is **2/17**, the revision due date is **2/19
 ## Summarize the data
 
 1. How many hospitals filed more than one report in the same year? Show your answer as a line graph of the number of hospitals over time.
-
 ```{r}
 #| echo: false
-
-# Count the number of hospitals with more than one report per year
-hospitals_multiple_reports <- final.hcris %>%
-  filter(report_number > 1) %>%
-  group_by(fyear) %>%
-  summarize(num_hospitals = n_distinct(provider_number))
-
-# Plot the line graph
-plot <- ggplot(hospitals_multiple_reports, aes(x = fyear, y = num_hospitals)) +
-  geom_line() +
-  labs(title = "Number of Hospitals with Multiple Reports per Year",
-       x = "Year",
-       y = "Number of Hospitals") +
-  theme_minimal()
-
-# Display the plot
-plot
-
-# Save the plot as a PNG file
-ggsave("submission1/results/hospitals_multiple_reports.png", 
-       plot = plot, 
-       width = 10, height = 6)
+#| eval: true
+fig.dup
 ```
 
 2. After removing/combining multiple reports, how many unique hospital IDs (Medicare provider numbers) exist in the data?
 ```{r}
 #| echo: false
-# Count the number of unique hospital IDs
-unique_hospital_ids <- final.hcris.data %>%
-  distinct(provider_number) %>%
-  nrow()
-
-#Answer: 121630
-unique_hospital_ids
+#| eval: true
+fig.unique
 ```
 
 3. What is the distribution of total charges (tot_charges in the data) in each year? Show your results with a "violin" plot, with charges on the y-axis and years on the x-axis. For a nice tutorial on violin plots, look at [Violin Plots with ggplot2](https://ggplot2tutor.com/powerlifting/squats/).
 ```{r}
 #| echo: false
-
-# Ensure data is clean and has all required columns
-final.hcris <- final.hcris %>%
-  drop_na(tot_charges, fyear)
-
-# Remove extreme outliers using the 1st and 99th percentiles
-lower_limit <- quantile(final.hcris$tot_charges, 0.01, na.rm = TRUE)
-upper_limit <- quantile(final.hcris$tot_charges, 0.99, na.rm = TRUE)
-
-final.hcris <- final.hcris %>%
-  filter(tot_charges >= lower_limit & tot_charges <= upper_limit)
-
-# Create a violin plot for total charges by year
-violin_tot_charges_plot <- ggplot(final.hcris, aes(x = as.factor(fyear), y = tot_charges)) +
-  geom_violin(fill = "steelblue", alpha = 0.5) +  # Violin plot with color
-  geom_quasirandom(size = 0.5, alpha = 0.5) +     # Scatter points inside violins
-  stat_summary(fun = median, geom = "point", size = 3, color = "red") + # Median point
-  stat_summary(fun = median, geom = "line", aes(group = 1), color = "red", size = 1) + # Median trend line
-  scale_y_log10(labels = scales::comma) +  # Log-transform to handle skewed data
-  labs(
-    title = "Distribution of Total Charges by Year",
-    subtitle = "Violin plot showing the total charges in hospitals over time",
-    x = "Year",
-    y = "Total Charges (USD, Log Scale)"
-  ) +
-  theme_minimal(base_size = 14) +  # Clean design
-  theme(
-    panel.grid.major = element_blank(), 
-    panel.grid.minor = element_blank(), 
-    axis.line = element_line(color = "black")
-  )
-
-# Print the plot
-print(violin_tot_charges_plot)
-
-# Save the plot
-ggsave('submission1/results/violin_tot_charges_plot.png', plot = violin_tot_charges_plot, width = 10, height = 6)
+#| eval: true
+fig.totcharge
 ```
 
 4. What is the distribution of estimated prices in each year? Again present your results with a violin plot, and recall our formula for estimating prices from class. Be sure to do something about outliers and/or negative prices in the data.
 ```{r}
 #| echo: false
-
-# Ensure data is clean and has all required columns
-final.hcris.data <- final.hcris.data %>%
-  drop_na(tot_charges, tot_discounts, ip_charges, icu_charges, ancillary_charges, 
-          tot_mcare_payment, tot_discharges, mcare_discharges, year)
-
-# Compute discount factor and estimated price
-final.hcris.data <- final.hcris.data %>%
-  mutate(
-    discount_factor = 1 - (tot_discounts / tot_charges),
-    price_num = (ip_charges + icu_charges + ancillary_charges) * discount_factor - tot_mcare_payment,
-    price_denom = tot_discharges - mcare_discharges,
-    price = price_num / price_denom
-  )
-
-# Remove invalid prices: negative values and extreme outliers
-final.hcris.data <- final.hcris.data %>%
-  filter(price > 0)  # Prices should not be negative
-
-# Set outlier limits using the 1st and 99th percentiles
-lower_limit <- quantile(final.hcris.data$price, 0.01, na.rm = TRUE)
-upper_limit <- quantile(final.hcris.data$price, 0.99, na.rm = TRUE)
-
-final.hcris.data <- final.hcris.data %>%
-  filter(price >= lower_limit & price <= upper_limit)
-
-# Create a violin plot for estimated prices by year
-violin_price_plot <- ggplot(final.hcris.data, aes(x = as.factor(year), y = price)) +
-  geom_violin(fill = "steelblue", alpha = 0.5) +  # Violin plot with color
-  geom_quasirandom(size = 0.5, alpha = 0.5) +     # Scatter points inside violins
-  stat_summary(fun = median, geom = "point", size = 3, color = "red") + # Median point
-  stat_summary(fun = median, geom = "line", aes(group = 1), color = "red", size = 1) + # Median trend line
-  scale_y_log10(labels = scales::comma) +  # Log-transform to handle skewed data
-  labs(
-    title = "Distribution of Estimated Prices by Year",
-    subtitle = "Violin plot showing the estimated prices in hospitals over time",
-    x = "Year",
-    y = "Estimated Price (USD, Log Scale)"
-  ) +
-  theme_minimal(base_size = 14) +  # Clean design
-  theme(
-    panel.grid.major = element_blank(), 
-    panel.grid.minor = element_blank(), 
-    axis.line = element_line(color = "black")
-  )
-
-# Print the plot
-print(violin_price_plot)
-
-# Save the plot
-ggsave('submission1/results/violin_price_plot.png', plot = violin_price_plot, width = 10, height = 6)
+#| eval: true
+fig.prices
 ```
 
 
@@ -167,29 +60,25 @@ ggsave('submission1/results/violin_price_plot.png', plot = violin_price_plot, wi
 For the rest of the assignment, you should include only observations in 2012. So we are now dealing with cross-sectional data in which some hospitals are penalized and some are not. Please also define **penalty** as whether the sum of the HRRP and HVBP amounts are negative (i.e., a net penalty under the two programs). Code to do this is in the class slides.
 
 5. Calculate the average price among penalized versus non-penalized hospitals.
+The average price among non-penalized hospitals in 2012 is `r format(as.numeric(avg.pen[1,2]), big.mark=",")`, 
+and the average price among penalized hospitals is `r format(as.numeric(avg.pen1[2,2]), big.mark=",")`.
+
 ```{r}
 #| echo: false
-# Define penalty
+#| eval: true
+avg_price_table <- data.frame(
+  Group = c("Non-Penalized", "Penalized"),
+  Mean_Price = c(mean.t0$mean_p, mean.t1$mean_p)
+)
 
-final.hcris.data <- final.hcris.data %>%
-  mutate(penalty = if_else(hrrp_payment + hvbp_payment < 0, 1, 0))
-
-# Filter data for 2012
-data_2012 <- final.hcris.data %>%
-  filter(year == 2012)
-
-# Calculate average price among penalized and non-penalized hospitals
-average_price <- data_2012 %>%
-  group_by(penalty) %>%
-  summarize(avg_price = mean(price, na.rm = TRUE))
-
-average_price
+avg_price_table %>% kable()
 ```
 
 6. Split hospitals into quartiles based on bed size. To do this, create 4 new indicator variables, where each variable is set to 1 if the hospital's bed size falls into the relevant quartile. Provide a table of the average price among treated/control groups for each quartile.
 ```{r}
-final.hcris.data <- final.hcris.data %>%
-
+#| echo: false
+#| eval: true
+avg.pen.tab %>% kable()
 ```
 
 7. Find the average treatment effect using each of the following estimators, and present your results in a single table: 
@@ -197,6 +86,54 @@ final.hcris.data <- final.hcris.data %>%
     - Nearest neighbor matching (1-to-1) with Mahalanobis distance based on quartiles of bed size
     - Inverse propensity weighting, where the propensity scores are based on quartiles of bed size
     - Simple linear regression, adjusting for quartiles of bed size using dummy variables and appropriate interactions as discussed in class
+```{r}
+#| echo: false
+#| eval: true
+mod.inv <- data.frame(
+  term = "Penalty",
+  estimate = match.inv$est,
+  std.error = match.inv$se
+)
+
+mod.mah <- data.frame(
+  term = "Penalty",
+  estimate = match.mah$est,
+  std.error = match.mah$se
+)
+
+mod.ipw <- data.frame(
+  term = "Penalty",
+  estimate = ipw.reg$coefficients[[2]],
+  std.error = sqrt(vcov(ipw.reg)[2,2])
+)
+
+mod.reg <- data.frame(
+  term = "Penalty",
+  estimate = reg$coefficients[[2]],
+  std.error = sqrt(vcov(reg)[2,2])
+)
+
+match.mod.inv <- list(tidy=mod.inv)
+class(match.mod.inv) <- "modelsummary_list"
+
+match.mod.mah <- list(tidy=mod.mah)
+class(match.mod.mah) <- "modelsummary_list"
+
+mod.ipw <- list(tidy=mod.ipw)
+class(mod.ipw) <- "modelsummary_list"
+
+mod.reg <- list(tidy=mod.reg)
+class(mod.reg) <- "modelsummary_list"
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| tbl-cap: ATE Estimates
+modelsummary(list("INV"=match.mod.inv, "MAH"=match.mod.mah, "IPW"=mod.ipw, "OLS"=mod.reg), 
+             output="kableExtra") %>%
+  kable_styling()
+```
 
 8. With these different treatment effect estimators, are the results similar, identical, very different? 
 
